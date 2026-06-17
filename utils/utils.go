@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -112,10 +113,6 @@ func ToLowerServices(a []string) (services_lowercase []string) {
 func CheckEnvFileExistance() bool {
 	if _, err := os.Stat(".env"); err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println(Red("Error:"), Yellow("File .env does not exist"))
-			fmt.Println(Green("Fix:"), Yellow("use `./cloudrider cred -h` command"))
-			//fmt.Println(Red("Trace:"), Yellow(err))
-			os.Exit(1)
 			return false
 		}
 	}
@@ -135,8 +132,10 @@ func CheckFileExistance(path string) bool {
 }
 
 func LoadEnv() {
-	err := godotenv.Load(".env")
-	if err != nil {
+	if _, err := os.Stat(".env"); err != nil {
+		return
+	}
+	if err := godotenv.Load(".env"); err != nil {
 		fmt.Println(Red("Error:"), Yellow("loading `.env` file"))
 		os.Exit(1)
 	}
@@ -178,12 +177,23 @@ func GetJsonKey(m string) (key interface{}) {
 	return key
 }
 
-func GetJsonFromFile(filepath string) (result map[string]interface{}) {
-	jsonFile, _ := os.Open(filepath)
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-
-	err := json.Unmarshal(byteValue, &result)
+func GetJsonFromFile(filePath string) (result map[string]interface{}) {
+	jsonFile, err := os.Open(filePath)
 	if err != nil {
+		fmt.Println(Red("Error:"), Yellow("opening result file"))
+		fmt.Println(Red("Trace:"), Yellow(err))
+		return result
+	}
+	defer jsonFile.Close()
+
+	byteValue, err := io.ReadAll(jsonFile)
+	if err != nil {
+		fmt.Println(Red("Error:"), Yellow("reading result file"))
+		fmt.Println(Red("Trace:"), Yellow(err))
+		return result
+	}
+
+	if err := json.Unmarshal(byteValue, &result); err != nil {
 		fmt.Println(Red("Error:"), Yellow("UnMarshal error, can't recreate an object"))
 		fmt.Println(Green("Fix:"), Yellow("The problem should be on our side, contact support please"))
 		fmt.Println(Red("Trace:"), Yellow(err))
@@ -195,11 +205,11 @@ func GetJsonFromFile(filepath string) (result map[string]interface{}) {
 func AnalyseService(service string, print bool, filter string, errors_dump bool) {
 
 	// Error or result analyse
-	var filepath string
+	var filePath string
 	if !errors_dump {
-		filepath = FILEPATH + service + ".json"
+		filePath = filepath.Join(FILEPATH, service+".json")
 	} else {
-		filepath = ERROR_FILEPATH + service + "_errors.json"
+		filePath = filepath.Join(ERROR_FILEPATH, service+"_errors.json")
 	}
 
 	// Display
@@ -207,10 +217,10 @@ func AnalyseService(service string, print bool, filter string, errors_dump bool)
 	fmt.Println("")
 
 	// Check the file existance
-	if CheckFileExistance(filepath) {
+	if CheckFileExistance(filePath) {
 
 		// dump service db_file
-		result := GetJsonFromFile(filepath)
+		result := GetJsonFromFile(filePath)
 
 		// check whether any info was stored
 		if len(result) == 0 {
@@ -247,16 +257,19 @@ func AnalyseService(service string, print bool, filter string, errors_dump bool)
 	}
 }
 
-func CreateAWScredentialsFile(aws_region, aws_access_key_id, aws_secret_access_key, aws_session_token *string) {
+func CreateAWScredentialsFile(aws_region, aws_access_key_id, aws_secret_access_key, aws_session_token, aws_endpoint_url *string) {
 
 	awsCredentials := "AWS_REGION=" + *aws_region + "\n"
 	awsCredentials += "AWS_ACCESS_KEY_ID=" + *aws_access_key_id + "\n"
 	awsCredentials += "AWS_SECRET_ACCESS_KEY=" + *aws_secret_access_key + "\n"
 	awsCredentials += "AWS_SESSION_TOKEN=" + *aws_session_token + "\n"
+	if *aws_endpoint_url != "" {
+		awsCredentials += "AWS_ENDPOINT_URL=" + *aws_endpoint_url + "\n"
+	}
 
-	ioutil.WriteFile(".env", []byte(awsCredentials), 0644)
+	if err := os.WriteFile(".env", []byte(awsCredentials), 0600); err != nil {
+		fmt.Println(Red("Error:"), Yellow("writing `.env` file"))
+		fmt.Println(Red("Trace:"), Yellow(err))
+		os.Exit(1)
+	}
 }
-
-// func LoadAWSCreds() {
-// 	ioutil.ReadFile()
-// }

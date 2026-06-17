@@ -29,11 +29,12 @@ func main() {
 
 	case "cred":
 		helper.Cred.Parse(os.Args[2:])
-		utils.CreateAWScredentialsFile(helper.AWS_region, helper.AWS_access_key_id, helper.AWS_secret_access_key, helper.AWS_session_token)
+		helper.ValidateCredFlags()
+		utils.CreateAWScredentialsFile(helper.AWS_region, helper.AWS_access_key_id, helper.AWS_secret_access_key, helper.AWS_session_token, helper.AWS_endpoint_url)
 		fmt.Println(utils.Green("Message: "), utils.Yellow("File"), utils.Red(".env"), utils.Yellow("with AWS credentials were created in current folder"))
 	case "enum":
 		helper.Enum.Parse(os.Args[2:])
-		helper.SetEnumerationPipeline(helper.Services_enum, helper.Speed)
+		helper.SetEnumerationPipeline(helper.Services_enum, helper.Speed, helper.Enum_endpoint_url)
 		fmt.Println(utils.Green("Message: "), utils.Yellow("Enumeration finished"))
 
 	case "dump":

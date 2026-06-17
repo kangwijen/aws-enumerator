@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	"github.com/aws/aws-sdk-go-v2/service/amplify"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
@@ -116,7 +115,7 @@ import (
 
 func GetServices() []servicemaster.ServiceMaster {
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	cfg, err := utils.LoadAWSConfig(context.TODO())
 
 	if err != nil {
 		log.Fatalln(utils.Red("Error:"), utils.Yellow("Unable to load SDK config,"))
@@ -1119,8 +1118,14 @@ func GetServices() []servicemaster.ServiceMaster {
 			{"apicall": "ListResolverRuleAssociations", "input_obj": &route53resolver.ListResolverRuleAssociationsInput{}},
 		}}
 
+	s3Client := s3.NewFromConfig(cfg)
+	if utils.CustomEndpointConfigured() {
+		s3Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
+			o.UsePathStyle = true
+		})
+	}
 	s3_svc := &servicemaster.ServiceMaster{
-		Svc:     s3.NewFromConfig(cfg),
+		Svc:     s3Client,
 		SvcName: "s3",
 		ApiCalls: []map[string]interface{}{
 			{"apicall": "ListBuckets", "input_obj": &s3.ListBucketsInput{}},
